@@ -1,0 +1,100 @@
+<html>
+
+<head>
+    <title>Face Mark detect</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const SOCKET_URL = location.origin;
+        const socket = io(SOCKET_URL);
+    </script>
+    <style>
+        .stream {
+            display: flex;
+            justify-content: space-around;
+            min-height: 250px;
+        }
+        .input{
+
+        }
+        .output {
+
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stream">
+        <div  class="input">
+            <div>Webcam</div>
+            <video autoplay></video>
+        </div>
+        <div class="output">
+            <div>Response</div>
+            <img>
+        </div>
+    </div>
+    <div align="center">
+        <label for="fps">FPS: </label>
+        <input id="fps" type="number" value="10" min="1" max="30"/>
+    </div>
+
+    <script>
+        // get video dom element
+        const video = document.querySelector('video');
+        // request access to webcam
+        navigator.mediaDevices
+            .getUserMedia({ video: { width: 426, height: 240 } })
+            .then((stream) => video.srcObject = stream);
+        // returns a frame encoded in base64
+        const getFrame = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const data = canvas.toDataURL('image/png');
+            return data;
+        }
+       
+
+        let timeout;
+
+        const sendFace = socket => {
+            socket.emit("send-face", getFrame());
+        }
+        socket.on("connect", () => {
+            console.log(`Connected to ${SOCKET_URL}`);
+            socket.on('disconnected', function () {
+                clearInterval(interval);
+            });
+        });
+     
+        const loop = () => {
+            clearTimeout(timeout);
+            let fps = document.getElementById('fps').value;
+            timeout = setTimeout(async () => {
+                await sleep(1); // bypass warning
+                sendFace(socket);
+                loop();
+            }, 1000 / fps);
+
+        };
+        loop();
+    </script>
+    <script>
+        // get img dom element
+        const img = document.querySelector('img');
+        socket.on('response', data => {
+            // console.log(data)
+            if(data != "data:,") {
+                img.src = data;
+            }
+        })
+    </script>
+    <script>
+        function sleep (ms) {
+            return new Promise(resolve => setTimeout(resolve, ms))
+        }
+    </script>
+</body>
+
+</html>
